@@ -1,5 +1,16 @@
 #!/usr/bin/perl
 print "Content-type: text/html\n\n";
+print "<html>
+	<head>
+		<title>Stack Overflow Deleted Question Viewer</title>
+		<style type='text/css'>
+			.comments table td:not(.comment-score) { display: none; }
+			.comments table td.comment-score { font-weight: bold; }
+			.comments table { float: left; }
+			.comments .comment-body:after { clear: both; content: ''; display: block; }
+		</style>
+	</head>
+	<body>";
 
 # this is where all my modules are
 use FindBin;
@@ -10,7 +21,7 @@ use CGI;
 my $cgi = CGI->new();
 my $id = $cgi->param('id');
 if ($id !~ /^\d+$/) {
-	print 'Invalid id - not a valid number';
+	print '<p>Invalid id - not a valid number</p>';
 	exit 1;
 }
 
@@ -20,8 +31,8 @@ use WWW::Mechanize;
 my $mech = WWW::Mechanize->new();
 $mech->get('https://openid.stackexchange.com/account/login');
 $mech->submit_form(with_fields => {
-	email => 'INSERT EMAIL OF USER WITH 10K REP HERE',
-	password => 'INSERT PASSWORD OF USER WITH 10K REP HERE'
+	email => 'INSERT EMAIL OF 10K USER HERE',
+	password => 'INSERT PASSWORD OF 10K USER HERE'
 });
 $mech->get('http://stackoverflow.com/users/login');
 $mech->submit_form(with_fields => {
@@ -41,5 +52,16 @@ my @postData = $xp->findnodes('//*[contains(concat(" ", normalize-space(@class),
 foreach my $post (@postData) {
 	my $postText = $post->findnodes('.//div[@class="post-text"]')->get_node(1)->as_HTML();
 	my $postVoteCount = $post->findnodes('.//span[contains(@class, "vote-count-post")]')->get_node(1)->as_text();
-	print "$postVoteCount votes:<br>$postText<br><hr><br>";
+	my $postId = ($post->attr('data-questionid') or $post->attr('data-answerid'));
+	# get comments
+	$mech->get("http://stackoverflow.com/posts/$postId/comments");
+	my $commentsText = $mech->content();
+	print "<b>$postVoteCount votes</b><br>
+		$postText<br>
+		<div class='comments'>
+			$commentsText<br>
+		</div>
+		<hr><br>";
 }
+
+print "</body></html>";
